@@ -3,9 +3,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PAOLA FLORES - Lector</title>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -58,6 +56,9 @@
       cursor: not-allowed;
     }
 
+    .verde { background: #198754; }
+    .secundario { background: #546e7a; }
+
     input {
       width: 100%;
       padding: 13px;
@@ -95,7 +96,7 @@
       📷 Abrir cámara
     </button>
 
-    <button id="btnCerrar" onclick="cerrarCamara()">
+    <button onclick="cerrarCamara()" class="secundario">
       Cerrar cámara
     </button>
 
@@ -105,13 +106,12 @@
 
     <hr>
 
-    <label for="codigo">
-      Código de barras
-    </label>
+    <label for="codigo">Código de barras</label>
 
     <input
       id="codigo"
       type="text"
+      inputmode="numeric"
       placeholder="Escanear o escribir código"
       autocomplete="off">
 
@@ -122,14 +122,17 @@
     <div id="resultado" class="resultado" hidden>
       <strong>Código reconocido:</strong>
       <p id="codigoResultado"></p>
-      <p>
-        El código está listo para conectarse
-        con PAOLA FLORES WEB.
-      </p>
+
+      <button class="verde" onclick="enviarCodigo()">
+        🛒 Enviar a PAOLA FLORES WEB
+      </button>
     </div>
   </main>
 
   <script>
+    const URL_SISTEMA =
+      "https://script.google.com/macros/s/AKfycbxjgROyAFUfE7Q1uDx634JfPgU2cbOrQVd3I0DkV3vVHbLtUeiMnRuONjHHbOI6bzzOYw/exec";
+
     let escaner = null;
     let activo = false;
     let iniciando = false;
@@ -159,10 +162,7 @@
           { facingMode: "environment" },
           {
             fps: 10,
-            qrbox: {
-              width: 250,
-              height: 150
-            }
+            qrbox: { width: 250, height: 150 }
           },
           codigoDetectado,
           () => {}
@@ -175,9 +175,7 @@
         estado("Error al abrir cámara: " + error);
 
         if (escaner) {
-          try {
-            await escaner.clear();
-          } catch (_) {}
+          try { await escaner.clear(); } catch (_) {}
         }
 
         escaner = null;
@@ -195,13 +193,8 @@
       escaner = null;
       activo = false;
 
-      try {
-        await lectorActual.stop();
-      } catch (_) {}
-
-      try {
-        await lectorActual.clear();
-      } catch (_) {}
+      try { await lectorActual.stop(); } catch (_) {}
+      try { await lectorActual.clear(); } catch (_) {}
 
       estado("Cámara cerrada.");
     }
@@ -224,8 +217,8 @@
     function confirmarCodigo() {
       const codigo = $("codigo").value.trim();
 
-      if (!codigo) {
-        estado("Ingresa o escanea un código.");
+      if (!/^[0-9]{6,20}$/.test(codigo)) {
+        estado("Ingresa un código válido de 6 a 20 dígitos.");
         return;
       }
 
@@ -235,9 +228,21 @@
       estado("Código confirmado.");
     }
 
-    window.addEventListener("pagehide", () => {
-      cerrarCamara();
-    });
+    function enviarCodigo() {
+      const codigo = $("codigo").value.trim();
+
+      if (!/^[0-9]{6,20}$/.test(codigo)) {
+        estado("El código de barras no es válido.");
+        return;
+      }
+
+      const destino = new URL(URL_SISTEMA);
+      destino.searchParams.set("barcode", codigo);
+
+      window.location.href = destino.toString();
+    }
+
+    window.addEventListener("pagehide", cerrarCamara);
   </script>
 </body>
 </html>
