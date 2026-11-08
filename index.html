@@ -5,87 +5,239 @@
   <meta charset="UTF-8">
   <meta name="viewport"
         content="width=device-width, initial-scale=1">
+
   <title>PAOLA FLORES - Lector</title>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
   <style>
+    * { box-sizing: border-box; }
+
     body {
       font-family: Arial, sans-serif;
       background: #f6f7fb;
+      margin: 0;
       padding: 20px;
+      color: #333;
+    }
+
+    .contenedor {
+      max-width: 480px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+    }
+
+    h2 {
       text-align: center;
+      color: #c2185b;
     }
-    h2 { color: #ad1457; }
-    video {
+
+    #lector {
       width: 100%;
-      max-width: 450px;
+      overflow: hidden;
       border-radius: 12px;
-      background: #222;
     }
+
     button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 9px;
       background: #e91e63;
       color: white;
-      border: 0;
-      border-radius: 9px;
-      padding: 14px;
-      margin: 10px 0;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    input {
       width: 100%;
-      max-width: 450px;
+      padding: 13px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
       font-size: 16px;
     }
-    #resultado { font-weight: bold; }
+
+    .resultado {
+      background: #e8f5e9;
+      padding: 15px;
+      margin-top: 15px;
+      border-radius: 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .mensaje {
+      margin-top: 12px;
+      font-size: 14px;
+    }
   </style>
 </head>
+
 <body>
-  <h2>📷 PAOLA FLORES</h2>
-  <h3>Lector de códigos de barras</h3>
+  <main class="contenedor">
+    <h2>📷 PAOLA FLORES</h2>
 
-  <video id="video" autoplay playsinline muted></video>
+    <p style="text-align:center">
+      Lector de códigos de barras
+    </p>
 
-  <button onclick="iniciarCamara()">
-    Abrir cámara
-  </button>
+    <div id="lector"></div>
 
-  <button onclick="detenerCamara()">
-    Cerrar cámara
-  </button>
+    <button id="btnAbrir" onclick="abrirCamara()">
+      📷 Abrir cámara
+    </button>
 
-  <p id="resultado">Esperando cámara...</p>
+    <button id="btnCerrar" onclick="cerrarCamara()">
+      Cerrar cámara
+    </button>
+
+    <p class="mensaje" id="mensaje">
+      Presiona Abrir cámara para comenzar.
+    </p>
+
+    <hr>
+
+    <label for="codigo">
+      Código de barras
+    </label>
+
+    <input
+      id="codigo"
+      type="text"
+      placeholder="Escanear o escribir código"
+      autocomplete="off">
+
+    <button onclick="confirmarCodigo()">
+      Confirmar código
+    </button>
+
+    <div id="resultado" class="resultado" hidden>
+      <strong>Código reconocido:</strong>
+      <p id="codigoResultado"></p>
+      <p>
+        El código está listo para conectarse
+        con PAOLA FLORES WEB.
+      </p>
+    </div>
+  </main>
 
   <script>
-    let stream = null;
+    let escaner = null;
+    let activo = false;
+    let iniciando = false;
+    let procesando = false;
 
-    async function iniciarCamara() {
+    const $ = id => document.getElementById(id);
+
+    function estado(texto) {
+      $("mensaje").textContent = texto;
+    }
+
+    async function abrirCamara() {
+      if (activo || iniciando) return;
+
+      if (typeof Html5Qrcode === "undefined") {
+        estado("No se pudo cargar el lector.");
+        return;
+      }
+
+      iniciando = true;
+      $("btnAbrir").disabled = true;
+
       try {
-        detenerCamara();
+        escaner = new Html5Qrcode("lector");
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" }
+        await escaner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: {
+              width: 250,
+              height: 150
+            }
           },
-          audio: false
-        });
+          codigoDetectado,
+          () => {}
+        );
 
-        document.getElementById("video").srcObject = stream;
-        await document.getElementById("video").play();
-
-        document.getElementById("resultado").textContent =
-          "Cámara activada correctamente.";
+        activo = true;
+        estado("Cámara activa. Enfoca un código.");
 
       } catch (error) {
-        document.getElementById("resultado").textContent =
-          "Error: " + error.message;
+        estado("Error al abrir cámara: " + error);
+
+        if (escaner) {
+          try {
+            await escaner.clear();
+          } catch (_) {}
+        }
+
+        escaner = null;
+
+      } finally {
+        iniciando = false;
+        $("btnAbrir").disabled = false;
       }
     }
 
-    function detenerCamara() {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-      }
+    async function cerrarCamara() {
+      if (!escaner) return;
 
-      document.getElementById("video").srcObject = null;
+      const lectorActual = escaner;
+      escaner = null;
+      activo = false;
+
+      try {
+        await lectorActual.stop();
+      } catch (_) {}
+
+      try {
+        await lectorActual.clear();
+      } catch (_) {}
+
+      estado("Cámara cerrada.");
     }
 
-    window.addEventListener("pagehide", detenerCamara);
+    function codigoDetectado(codigo) {
+      if (procesando) return;
+
+      procesando = true;
+
+      $("codigo").value = codigo;
+      $("codigoResultado").textContent = codigo;
+      $("resultado").hidden = false;
+
+      estado("Código reconocido correctamente.");
+
+      cerrarCamara();
+      procesando = false;
+    }
+
+    function confirmarCodigo() {
+      const codigo = $("codigo").value.trim();
+
+      if (!codigo) {
+        estado("Ingresa o escanea un código.");
+        return;
+      }
+
+      $("codigoResultado").textContent = codigo;
+      $("resultado").hidden = false;
+
+      estado("Código confirmado.");
+    }
+
+    window.addEventListener("pagehide", () => {
+      cerrarCamara();
+    });
   </script>
 </body>
 </html>
