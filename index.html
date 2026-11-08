@@ -1,0 +1,91 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>PAOLA FLORES - Lector</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f7fb;
+      padding: 20px;
+      text-align: center;
+    }
+    h2 { color: #ad1457; }
+    video {
+      width: 100%;
+      max-width: 450px;
+      border-radius: 12px;
+      background: #222;
+    }
+    button {
+      background: #e91e63;
+      color: white;
+      border: 0;
+      border-radius: 9px;
+      padding: 14px;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 450px;
+      font-size: 16px;
+    }
+    #resultado { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>📷 PAOLA FLORES</h2>
+  <h3>Lector de códigos de barras</h3>
+
+  <video id="video" autoplay playsinline muted></video>
+
+  <button onclick="iniciarCamara()">
+    Abrir cámara
+  </button>
+
+  <button onclick="detenerCamara()">
+    Cerrar cámara
+  </button>
+
+  <p id="resultado">Esperando cámara...</p>
+
+  <script>
+    let stream = null;
+
+    async function iniciarCamara() {
+      try {
+        detenerCamara();
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" }
+          },
+          audio: false
+        });
+
+        document.getElementById("video").srcObject = stream;
+        await document.getElementById("video").play();
+
+        document.getElementById("resultado").textContent =
+          "Cámara activada correctamente.";
+
+      } catch (error) {
+        document.getElementById("resultado").textContent =
+          "Error: " + error.message;
+      }
+    }
+
+    function detenerCamara() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+
+      document.getElementById("video").srcObject = null;
+    }
+
+    window.addEventListener("pagehide", detenerCamara);
+  </script>
+</body>
+</html>
